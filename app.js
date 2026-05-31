@@ -501,6 +501,31 @@ function renderChart(schedule, currentSettings) {
   });
 }
 
+function renderTargetLine(svg, schedule, margin, chartHeight, yearSlotWidth, yMax) {
+  if (!schedule.length) return;
+
+  const points = schedule.map((year, index) => ({
+    xStart: margin.left + index * yearSlotWidth,
+    xEnd: margin.left + (index + 1) * yearSlotWidth,
+    y: margin.top + chartHeight - (year.target / yMax) * chartHeight,
+    target: year.target
+  }));
+  let pathData = `M ${points[0].xStart} ${points[0].y}`;
+
+  points.forEach((point, index) => {
+    pathData += ` L ${point.xEnd} ${point.y}`;
+    const nextPoint = points[index + 1];
+    if (nextPoint && nextPoint.y !== point.y) {
+      pathData += ` L ${point.xEnd} ${nextPoint.y}`;
+    }
+  });
+
+  path(svg, pathData, "target-line");
+
+  const lastPoint = points.at(-1);
+  text(svg, lastPoint.xEnd, Math.max(14, lastPoint.y - 8), `Cible ${compactCurrency(lastPoint.target)}`, "bar-label", "end");
+}
+
 function renderTable(schedule, sources) {
   fields.scheduleHead.replaceChildren();
   fields.scheduleBody.replaceChildren();
@@ -573,6 +598,39 @@ function normalizeSettings(value) {
       constantWithdrawal: Boolean(source.constantWithdrawal)
     })) : []
   };
+}
+
+function normalizeTargetChanges(changes) {
+  if (!Array.isArray(changes)) return [];
+
+  return sortedTargetChanges(changes.map((change) => ({
+    id: change.id || crypto.randomUUID(),
+    startDate: change.startDate || defaultSettings.target.startDate,
+    annualAmount: numberValue(change.annualAmount)
+  })));
+}
+
+function sortedTargetChanges(changes) {
+  if (!Array.isArray(changes)) return [];
+
+  return [...changes].sort((first, second) => {
+    const firstDate = parseDate(first.startDate)?.getTime() ?? 0;
+    const secondDate = parseDate(second.startDate)?.getTime() ?? 0;
+    return firstDate - secondDate;
+  });
+}
+
+function targetAmountForDate(target, date) {
+  let amount = Math.max(0, numberValue(target.annualAmount));
+
+  sortedTargetChanges(target.changes).forEach((change) => {
+    const start = parseDate(change.startDate);
+    if (start && start <= date) {
+      amount = Math.max(0, numberValue(change.annualAmount));
+    }
+  });
+
+  return amount;
 }
 
 function scheduleSave() {
@@ -724,6 +782,14 @@ function line(svg, x1, y1, x2, y2, className) {
   element.setAttribute("x2", x2);
   element.setAttribute("y2", y2);
   element.setAttribute("class", className);
+  svg.append(element);
+}
+
+function path(svg, pathData, className) {
+  const element = document.createElementNS(SVG_NS, "path");
+  element.setAttribute("d", pathData);
+  element.setAttribute("class", className);
+  element.setAttribute("fill", "none");
   svg.append(element);
 }
 
