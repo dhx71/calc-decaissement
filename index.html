@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Calculateur de decaissements</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="config-panel" aria-label="Configuration">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Configuration</p>
+            <h1>Decaissements</h1>
+          </div>
+          <button class="icon-button" id="resetSettings" type="button" aria-label="Reinitialiser les parametres" title="Reinitialiser">
+            <span aria-hidden="true">R</span>
+          </button>
+        </div>
+
+        <section class="settings-section" aria-labelledby="targetTitle">
+          <h2 id="targetTitle">Cible</h2>
+          <div class="form-grid two-columns">
+            <label>
+              <span>Date de debut</span>
+              <input id="targetStartDate" type="date">
+            </label>
+            <label>
+              <span>Duree</span>
+              <input id="targetDurationYears" type="number" min="1" max="80" step="1">
+            </label>
+            <label class="wide-field">
+              <span>Decaissement annuel initial</span>
+              <input id="targetAnnualAmount" type="number" min="0" step="100">
+            </label>
+          </div>
+
+          <div class="subsection-title-row">
+            <h3>Changements de cible</h3>
+            <button class="text-button secondary-button" id="addTargetChange" type="button">Ajouter</button>
+          </div>
+          <div id="targetChangesList" class="target-changes-list"></div>
+        </section>
+
+        <section class="settings-section sources-section" aria-labelledby="sourcesTitle">
+          <div class="section-title-row">
+            <h2 id="sourcesTitle">Sources</h2>
+            <button class="text-button" id="addSource" type="button">Ajouter</button>
+          </div>
+          <div id="sourcesList" class="sources-list"></div>
+        </section>
+      </aside>
+
+      <section class="workspace" aria-label="Graphique des decaissements">
+        <header class="workspace-header">
+          <div>
+            <p class="eyebrow">Projection</p>
+            <h2>Decaissements annuels par source</h2>
+          </div>
+          <div class="storage-status" id="storageStatus">Parametres sauvegardes dans le navigateur</div>
+        </header>
+
+        <div class="summary-strip" id="summaryStrip"></div>
+
+        <section class="chart-surface" aria-labelledby="chartTitle">
+          <div class="chart-header">
+            <h3 id="chartTitle">Graphique</h3>
+            <div class="legend" id="legend"></div>
+          </div>
+          <div class="chart-wrap">
+            <svg id="chart" role="img" aria-labelledby="chartTitle chartDescription"></svg>
+            <p id="chartDescription" class="sr-only">Graphique a barres empilees montrant le montant de decaissement par annee et par source.</p>
+          </div>
+        </section>
+
+        <section class="table-surface" aria-labelledby="tableTitle">
+          <h3 id="tableTitle">Details annuels</h3>
+          <div class="table-wrap">
+            <table>
+              <thead id="scheduleHead">
+                <tr>
+                  <th>Annee</th>
+                  <th>Total</th>
+                  <th>Cible</th>
+                </tr>
+              </thead>
+              <tbody id="scheduleBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <template id="targetChangeTemplate">
+      <article class="target-change-card">
+        <label>
+          <span>A partir du</span>
+          <input data-target-change-field="startDate" type="date">
+        </label>
+        <label>
+          <span>Decaissement annuel</span>
+          <input data-target-change-field="annualAmount" type="number" min="0" step="100">
+        </label>
+        <button class="icon-button remove-target-change" type="button" aria-label="Supprimer ce changement de cible" title="Supprimer">
+          <span aria-hidden="true">x</span>
+        </button>
+      </article>
+    </template>
+
+    <template id="sourceTemplate">
+      <article class="source-card">
+        <div class="source-card-header">
+          <label class="source-name-label">
+            <span>Nom</span>
+            <input data-field="name" type="text" maxlength="40">
+          </label>
+          <button class="icon-button remove-source" type="button" aria-label="Supprimer la source" title="Supprimer">
+            <span aria-hidden="true">x</span>
+          </button>
+        </div>
+
+        <div class="form-grid two-columns">
+          <label class="wide-field">
+            <span>Type</span>
+            <select data-field="type">
+              <option value="investment">Epargne / placement</option>
+              <option value="annualIncome">Revenu annuel</option>
+            </select>
+          </label>
+          <label class="investment-field">
+            <span>Montant initial</span>
+            <input data-field="initialAmount" type="number" min="0" step="100">
+          </label>
+          <label class="investment-field">
+            <span>Date initiale</span>
+            <input data-field="initialDate" type="date">
+          </label>
+          <label>
+            <span>Couleur</span>
+            <input data-field="color" type="color">
+          </label>
+          <label class="income-field">
+            <span>Revenu annuel</span>
+            <input data-field="annualIncomeAmount" type="number" min="0" step="100">
+          </label>
+          <label class="investment-field">
+            <span>Contribution</span>
+            <input data-field="contributionAmount" type="number" min="0" step="25">
+          </label>
+          <label class="investment-field">
+            <span>Periode</span>
+            <select data-field="contributionPeriod">
+              <option value="weekly">Semaine</option>
+              <option value="biweekly">2 semaines</option>
+              <option value="monthly">Mois</option>
+              <option value="yearly">Annee</option>
+            </select>
+          </label>
+          <label>
+            <span data-role="start-date-label">Debut retraits</span>
+            <input data-field="withdrawalStartDate" type="date">
+          </label>
+          <label class="investment-field">
+            <span>Rendement annuel (%)</span>
+            <input data-field="annualReturnRate" type="number" step="0.1">
+          </label>
+          <label>
+            <span>Date de fin</span>
+            <input data-field="endDate" type="date">
+          </label>
+        </div>
+
+        <label class="check-row investment-field">
+          <input data-field="constantWithdrawal" type="checkbox">
+          <span>Retrait constant</span>
+        </label>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
