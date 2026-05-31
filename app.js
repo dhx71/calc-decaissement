@@ -162,7 +162,7 @@ function renderSources() {
     return;
   }
 
-  settings.sources.forEach((source) => {
+  settings.sources.forEach((source, index) => {
     const node = fields.sourceTemplate.content.firstElementChild.cloneNode(true);
     node.dataset.sourceId = source.id;
     node.dataset.sourceType = source.type;
@@ -181,6 +181,14 @@ function renderSources() {
       });
     });
 
+    const moveUpButton = node.querySelector(".move-source-up");
+    const moveDownButton = node.querySelector(".move-source-down");
+    moveUpButton.disabled = index === 0;
+    moveDownButton.disabled = index === settings.sources.length - 1;
+
+    moveUpButton.addEventListener("click", () => moveSource(source.id, -1));
+    moveDownButton.addEventListener("click", () => moveSource(source.id, 1));
+
     node.querySelector(".remove-source").addEventListener("click", () => {
       settings.sources = settings.sources.filter((item) => item.id !== source.id);
       updateAndRender();
@@ -188,6 +196,17 @@ function renderSources() {
 
     fields.sourcesList.append(node);
   });
+}
+
+function moveSource(sourceId, direction) {
+  const index = settings.sources.findIndex((source) => source.id === sourceId);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= settings.sources.length) return;
+
+  const movedSource = settings.sources[index];
+  settings.sources.splice(index, 1);
+  settings.sources.splice(nextIndex, 0, movedSource);
+  updateAndRender();
 }
 
 function updateSourceValue(sourceId, key, input) {
@@ -485,6 +504,7 @@ function renderChart(schedule, currentSettings) {
   schedule.forEach((year, index) => {
     const x = margin.left + index * yearSlotWidth + barGap / 2;
     let yCursor = margin.top + chartHeight;
+    const barTop = year.total > 0 ? margin.top + chartHeight - (year.total / yMax) * chartHeight : margin.top + chartHeight - 1;
 
     year.sourceValues.forEach((sourceValue) => {
       if (sourceValue.amount <= 0) return;
@@ -498,7 +518,24 @@ function renderChart(schedule, currentSettings) {
       const totalY = margin.top + chartHeight - (year.total / yMax) * chartHeight;
       text(svg, x + barWidth / 2, Math.max(14, totalY - 8), compactCurrency(year.total), "bar-label", "middle");
     }
+
+    tooltipRect(svg, x, barTop, barWidth, margin.top + chartHeight - barTop, barTooltipText(year));
   });
+}
+
+function barTooltipText(year) {
+  const lines = [`${year.year}`, `Total: ${currency(year.total)}`, `Cible: ${currency(year.target)}`];
+  const sourceLines = year.sourceValues
+    .filter((sourceValue) => sourceValue.amount > 0)
+    .map((sourceValue) => `${sourceValue.name}: ${currency(sourceValue.amount)}`);
+
+  if (sourceLines.length > 0) {
+    lines.push(...sourceLines);
+  } else {
+    lines.push("Aucun decaissement");
+  }
+
+  return lines.join("\n");
 }
 
 function renderTargetLine(svg, schedule, margin, chartHeight, yearSlotWidth, yMax) {
@@ -772,6 +809,20 @@ function rect(svg, x, y, width, height, fill) {
   element.setAttribute("height", Math.max(0, height));
   element.setAttribute("rx", 4);
   element.setAttribute("fill", fill);
+  svg.append(element);
+}
+
+function tooltipRect(svg, x, y, width, height, title) {
+  const element = document.createElementNS(SVG_NS, "rect");
+  element.setAttribute("x", x);
+  element.setAttribute("y", y);
+  element.setAttribute("width", width);
+  element.setAttribute("height", Math.max(1, height));
+  element.setAttribute("class", "bar-hit-area");
+
+  const titleElement = document.createElementNS(SVG_NS, "title");
+  titleElement.textContent = title;
+  element.append(titleElement);
   svg.append(element);
 }
 

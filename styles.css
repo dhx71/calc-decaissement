@@ -238,10 +238,28 @@ button:focus-visible {
   flex: 1;
 }
 
+.source-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+.source-actions .icon-button {
+  width: 34px;
+  min-height: 34px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  transform: none;
+}
+
 .remove-source {
   color: var(--danger);
-  flex: 0 0 auto;
-  margin-top: 20px;
 }
 
 .check-row {
@@ -404,6 +422,11 @@ button:focus-visible {
   fill: var(--text);
   font-size: 12px;
   font-weight: 750;
+}
+
+.bar-hit-area {
+  fill: transparent;
+  pointer-events: all;
 }
 
 .empty-state {
