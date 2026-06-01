@@ -111,10 +111,11 @@
     <template id="sourceTemplate">
       <article class="source-card">
         <div class="source-card-header">
-          <label class="source-name-label">
-            <span>Nom</span>
-            <input data-field="name" type="text" maxlength="40">
-          </label>
+          <button class="source-summary-button" type="button" aria-expanded="true">
+            <span class="source-toggle-icon" aria-hidden="true">▾</span>
+            <span class="source-summary-color" aria-hidden="true"></span>
+            <span class="source-summary-name"></span>
+          </button>
           <div class="source-actions">
             <button class="icon-button move-source-up" type="button" aria-label="Monter la source" title="Monter">
               <span aria-hidden="true">↑</span>
@@ -128,61 +129,67 @@
           </div>
         </div>
 
-        <div class="form-grid two-columns">
-          <label class="wide-field">
-            <span>Type</span>
-            <select data-field="type">
-              <option value="investment">Epargne / placement</option>
-              <option value="annualIncome">Revenu annuel</option>
-            </select>
-          </label>
-          <label class="investment-field">
-            <span>Montant initial</span>
-            <input data-field="initialAmount" type="number" min="0" step="100">
-          </label>
-          <label class="investment-field">
-            <span>Date initiale</span>
-            <input data-field="initialDate" type="date">
-          </label>
-          <label>
-            <span>Couleur</span>
-            <input data-field="color" type="color">
-          </label>
-          <label class="income-field">
-            <span>Revenu annuel</span>
-            <input data-field="annualIncomeAmount" type="number" min="0" step="100">
-          </label>
-          <label class="investment-field">
-            <span>Contribution</span>
-            <input data-field="contributionAmount" type="number" min="0" step="25">
-          </label>
-          <label class="investment-field">
-            <span>Periode</span>
-            <select data-field="contributionPeriod">
-              <option value="weekly">Semaine</option>
-              <option value="biweekly">2 semaines</option>
-              <option value="monthly">Mois</option>
-              <option value="yearly">Annee</option>
-            </select>
-          </label>
-          <label>
-            <span data-role="start-date-label">Debut retraits</span>
-            <input data-field="withdrawalStartDate" type="date">
-          </label>
-          <label class="investment-field">
-            <span>Rendement annuel (%)</span>
-            <input data-field="annualReturnRate" type="number" step="0.1">
-          </label>
-          <label>
-            <span>Date de fin</span>
-            <input data-field="endDate" type="date">
+        <div class="source-card-body">
+          <div class="form-grid two-columns">
+            <label class="wide-field">
+              <span>Nom</span>
+              <input data-field="name" type="text" maxlength="40">
+            </label>
+            <label class="wide-field">
+              <span>Type</span>
+              <select data-field="type">
+                <option value="investment">Epargne / placement</option>
+                <option value="annualIncome">Revenu annuel</option>
+              </select>
+            </label>
+            <label class="investment-field">
+              <span>Montant initial</span>
+              <input data-field="initialAmount" type="number" min="0" step="100">
+            </label>
+            <label class="investment-field">
+              <span>Date initiale</span>
+              <input data-field="initialDate" type="date">
+            </label>
+            <label>
+              <span>Couleur</span>
+              <input data-field="color" type="color">
+            </label>
+            <label class="income-field">
+              <span>Revenu annuel</span>
+              <input data-field="annualIncomeAmount" type="number" min="0" step="100">
+            </label>
+            <label class="investment-field">
+              <span>Contribution</span>
+              <input data-field="contributionAmount" type="number" min="0" step="25">
+            </label>
+            <label class="investment-field">
+              <span>Periode</span>
+              <select data-field="contributionPeriod">
+                <option value="weekly">Semaine</option>
+                <option value="biweekly">2 semaines</option>
+                <option value="monthly">Mois</option>
+                <option value="yearly">Annee</option>
+              </select>
+            </label>
+            <label>
+              <span data-role="start-date-label">Debut retraits</span>
+              <input data-field="withdrawalStartDate" type="date">
+            </label>
+            <label class="investment-field">
+              <span>Rendement annuel (%)</span>
+              <input data-field="annualReturnRate" type="number" step="0.1">
+            </label>
+            <label>
+              <span>Date de fin</span>
+              <input data-field="endDate" type="date">
+            </label>
+          </div>
+
+          <label class="check-row investment-field">
+            <input data-field="constantWithdrawal" type="checkbox">
+            <span>Retrait constant</span>
           </label>
         </div>
-
-        <label class="check-row investment-field">
-          <input data-field="constantWithdrawal" type="checkbox">
-          <span>Retrait constant</span>
-        </label>
       </article>
     </template>
 

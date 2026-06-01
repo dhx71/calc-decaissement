@@ -229,20 +229,66 @@ button:focus-visible {
   padding: 14px;
 }
 
+.source-card-header {
+  align-items: center;
+}
+
+.source-card-body[hidden] {
+  display: none;
+}
+
 .source-card[data-source-type="investment"] .income-field,
 .source-card[data-source-type="annualIncome"] .investment-field {
   display: none;
 }
 
-.source-name-label {
+.source-summary-button {
+  display: flex;
+  align-items: center;
   flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.source-summary-button:hover .source-summary-name {
+  color: var(--accent-strong);
+}
+
+.source-toggle-icon {
+  width: 18px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.source-summary-color {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(23, 33, 43, 0.16);
+  border-radius: 4px;
+}
+
+.source-summary-name {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .source-actions {
   display: flex;
   flex: 0 0 auto;
   gap: 6px;
-  margin-top: 20px;
 }
 
 .source-actions .icon-button {
@@ -452,6 +498,11 @@ td {
   padding: 10px 8px;
   text-align: right;
   font-size: 13px;
+}
+
+.balance-cell {
+  color: var(--muted);
+  background: #f8fafb;
 }
 
 th:first-child,

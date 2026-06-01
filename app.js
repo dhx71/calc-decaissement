@@ -12,6 +12,7 @@ const defaultSettings = {
     {
       id: crypto.randomUUID(),
       type: "investment",
+      collapsed: false,
       name: "REER",
       annualIncomeAmount: 0,
       initialAmount: 280000,
@@ -27,6 +28,7 @@ const defaultSettings = {
     {
       id: crypto.randomUUID(),
       type: "investment",
+      collapsed: false,
       name: "CELI",
       annualIncomeAmount: 0,
       initialAmount: 85000,
@@ -166,7 +168,14 @@ function renderSources() {
     const node = fields.sourceTemplate.content.firstElementChild.cloneNode(true);
     node.dataset.sourceId = source.id;
     node.dataset.sourceType = source.type;
+    node.dataset.collapsed = String(Boolean(source.collapsed));
     updateSourceLabels(node, source.type);
+    updateSourceSummary(node, source);
+    updateSourceCollapseState(node, source);
+
+    node.querySelector(".source-summary-button").addEventListener("click", () => {
+      toggleSourceCollapsed(source.id, node);
+    });
 
     node.querySelectorAll("[data-field]").forEach((input) => {
       const key = input.dataset.field;
@@ -178,6 +187,7 @@ function renderSources() {
 
       input.addEventListener("input", () => {
         updateSourceValue(source.id, key, input);
+        updateSourceSummary(node, source);
       });
     });
 
@@ -196,6 +206,32 @@ function renderSources() {
 
     fields.sourcesList.append(node);
   });
+}
+
+function toggleSourceCollapsed(sourceId, node) {
+  const source = settings.sources.find((item) => item.id === sourceId);
+  if (!source) return;
+
+  source.collapsed = !source.collapsed;
+  updateSourceCollapseState(node, source);
+  scheduleSave();
+}
+
+function updateSourceCollapseState(node, source) {
+  const collapsed = Boolean(source.collapsed);
+  const summaryButton = node.querySelector(".source-summary-button");
+  const body = node.querySelector(".source-card-body");
+  const icon = node.querySelector(".source-toggle-icon");
+
+  node.dataset.collapsed = String(collapsed);
+  summaryButton.setAttribute("aria-expanded", String(!collapsed));
+  body.hidden = collapsed;
+  icon.textContent = collapsed ? "▸" : "▾";
+}
+
+function updateSourceSummary(node, source) {
+  node.querySelector(".source-summary-name").textContent = source.name || "Source sans nom";
+  node.querySelector(".source-summary-color").style.background = source.color;
 }
 
 function moveSource(sourceId, direction) {
@@ -234,6 +270,14 @@ function updateTargetChangeValue(changeId, key, input) {
   if (!change) return;
 
   change[key] = input.type === "number" ? numberValue(input.value) : input.value;
+
+  if (key === "startDate") {
+    if (!parseDate(change.startDate)) return;
+    settings.target.changes = sortedTargetChanges(settings.target.changes);
+    updateAndRender();
+    return;
+  }
+
   updateProjection();
 }
 
@@ -252,6 +296,7 @@ function createSource() {
   return {
     id: crypto.randomUUID(),
     type: "investment",
+    collapsed: false,
     name: `Source ${settings.sources.length + 1}`,
     annualIncomeAmount: 0,
     initialAmount: 0,
@@ -422,7 +467,8 @@ function renderSummary(schedule) {
   const totalWithdrawn = schedule.reduce((sum, year) => sum + year.total, 0);
   const targetTotal = schedule.reduce((sum, year) => sum + year.target, 0);
   const firstShortfall = schedule.find((year) => year.total + 0.01 < year.target);
-  const surplus = Math.max(0, totalWithdrawn - targetTotal);
+  const remainingBalance = finalEndingBalance(schedule);
+  const surplus = Math.max(0, totalWithdrawn - targetTotal) + remainingBalance;
   const shortfall = Math.max(0, targetTotal - totalWithdrawn);
   const sourceCount = settings.sources.length;
   let statusLabel = "Equilibre";
@@ -445,6 +491,13 @@ function renderSummary(schedule) {
     summaryItem("Total projete", currency(totalWithdrawn)),
     summaryItem(statusLabel, statusValue, statusTone)
   );
+}
+
+function finalEndingBalance(schedule) {
+  const lastYear = schedule.at(-1);
+  if (!lastYear) return 0;
+
+  return lastYear.sourceValues.reduce((sum, sourceValue) => sum + Math.max(0, sourceValue.endingBalance), 0);
 }
 
 function summaryItem(label, value, tone = "neutral") {
@@ -568,7 +621,12 @@ function renderTable(schedule, sources) {
   fields.scheduleBody.replaceChildren();
 
   const headRow = document.createElement("tr");
-  ["Annee", ...sources.map((source) => source.name), "Total", "Cible"].forEach((title) => {
+  const sourceHeaders = sources.flatMap((source) => {
+    if (isAnnualIncomeSource(source)) return [`${source.name} revenu`];
+    return [`${source.name} retrait`, `${source.name} solde`];
+  });
+
+  ["Annee", ...sourceHeaders, "Total", "Cible"].forEach((title) => {
     const th = document.createElement("th");
     th.textContent = title;
     headRow.append(th);
@@ -582,10 +640,17 @@ function renderTable(schedule, sources) {
     row.append(yearCell);
 
     sources.forEach((source) => {
-      const value = year.sourceValues.find((item) => item.id === source.id)?.amount ?? 0;
-      const cell = document.createElement("td");
-      cell.textContent = currency(value);
-      row.append(cell);
+      const sourceValue = year.sourceValues.find((item) => item.id === source.id);
+      const withdrawalCell = document.createElement("td");
+      withdrawalCell.textContent = currency(sourceValue?.amount ?? 0);
+      row.append(withdrawalCell);
+
+      if (!isAnnualIncomeSource(source)) {
+        const balanceCell = document.createElement("td");
+        balanceCell.className = "balance-cell";
+        balanceCell.textContent = currency(sourceValue?.endingBalance ?? 0);
+        row.append(balanceCell);
+      }
     });
 
     const totalCell = document.createElement("td");
@@ -622,6 +687,7 @@ function normalizeSettings(value) {
     sources: Array.isArray(value?.sources) ? value.sources.map((source, index) => ({
       id: source.id || crypto.randomUUID(),
       type: source.type === "annualIncome" ? "annualIncome" : "investment",
+      collapsed: Boolean(source.collapsed),
       name: source.name || `Source ${index + 1}`,
       annualIncomeAmount: numberValue(source.annualIncomeAmount),
       initialAmount: numberValue(source.initialAmount),
