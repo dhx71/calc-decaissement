@@ -75,7 +75,11 @@ init();
 
 function init() {
   requestPersistentStorage();
+  const loadedFromUrl = loadScenarioFromUrl();
   renderAll();
+  if (loadedFromUrl) {
+    scheduleSave();
+  }
 
   fields.addScenario.addEventListener("click", () => {
     state.scenarios.push(createScenario());
@@ -212,6 +216,7 @@ function renderActiveScenarioBody() {
 function bindScenarioToolbar(body) {
   const fileInput = body.querySelector(".import-file-input");
 
+  body.querySelector(".copy-link-scenario").addEventListener("click", () => copyScenarioLink());
   body.querySelector(".export-scenario").addEventListener("click", () => exportScenarioToFile());
   body.querySelector(".import-scenario").addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", (event) => importScenarioFromFile(event, fileInput));
@@ -490,6 +495,62 @@ function createTargetChange() {
     startDate: toDateInputValue(start),
     annualAmount: settings.target.annualAmount
   };
+}
+
+function encodeScenario(settings) {
+  const json = JSON.stringify(settings);
+  return btoa(unescape(encodeURIComponent(json)));
+}
+
+function decodeScenarioData(base64) {
+  const json = decodeURIComponent(escape(atob(base64)));
+  return JSON.parse(json);
+}
+
+function getShareUrl(settings) {
+  const base64 = encodeScenario(settings);
+  const url = new URL(window.location.href);
+  url.searchParams.set("s", base64);
+  url.hash = "";
+  return url.toString();
+}
+
+function copyScenarioLink() {
+  const url = getShareUrl(settings);
+  navigator.clipboard.writeText(url).then(() => {
+    fields.storageStatus.textContent = "Lien copie dans le presse-papier";
+  }).catch(() => {
+    globalThis.alert("Impossible de copier le lien. Verifiez les permissions du navigateur.");
+  });
+}
+
+function loadScenarioFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const base64 = params.get("s");
+  if (!base64) return false;
+
+  try {
+    const loadedSettings = normalizeSettings(decodeScenarioData(base64));
+    const id = crypto.randomUUID();
+    const scenarioName = "Scenario partage";
+
+    const duplicateIndex = state.scenarios.findIndex((s) => s.name === scenarioName);
+    if (duplicateIndex !== -1) {
+      const loadedJson = JSON.stringify(loadedSettings);
+      const existingJson = JSON.stringify(state.scenarios[duplicateIndex].settings);
+      if (loadedJson === existingJson) {
+        state.activeScenarioId = state.scenarios[duplicateIndex].id;
+        return true;
+      }
+    }
+
+    state.scenarios.push({ id, name: "Scenario partage", settings: loadedSettings });
+    state.activeScenarioId = id;
+    return true;
+  } catch {
+    fields.storageStatus.textContent = "Lien de scenario invalide";
+    return false;
+  }
 }
 
 function exportScenarioToFile() {
