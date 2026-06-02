@@ -2,6 +2,8 @@ const STORAGE_KEY = "calc-decaissement-settings-v1";
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const defaultSettings = {
+  inflationRate: 2,
+  showConstantDollars: true,
   target: {
     startDate: "2035-01-01",
     annualAmount: 60000,
@@ -45,6 +47,8 @@ const defaultSettings = {
 };
 
 const fields = {
+  inflationRate: document.querySelector("#inflationRate"),
+  showConstantDollars: document.querySelector("#showConstantDollars"),
   targetStartDate: document.querySelector("#targetStartDate"),
   targetAnnualAmount: document.querySelector("#targetAnnualAmount"),
   targetDurationYears: document.querySelector("#targetDurationYears"),
@@ -54,6 +58,9 @@ const fields = {
   sourcesList: document.querySelector("#sourcesList"),
   addSource: document.querySelector("#addSource"),
   resetSettings: document.querySelector("#resetSettings"),
+  exportSettings: document.querySelector("#exportSettings"),
+  importSettings: document.querySelector("#importSettings"),
+  importFileInput: document.querySelector("#importFileInput"),
   sourceTemplate: document.querySelector("#sourceTemplate"),
   storageStatus: document.querySelector("#storageStatus"),
   summaryStrip: document.querySelector("#summaryStrip"),
@@ -90,9 +97,23 @@ function init() {
     settings.sources = settings.sources.map((source) => ({ ...source, id: crypto.randomUUID() }));
     updateAndRender();
   });
+
+  fields.exportSettings.addEventListener("click", exportToFile);
+  fields.importSettings.addEventListener("click", () => fields.importFileInput.click());
+  fields.importFileInput.addEventListener("change", importFromFile);
 }
 
 function bindTargetFields() {
+  fields.inflationRate.addEventListener("input", (event) => {
+    settings.inflationRate = numberValue(event.target.value);
+    updateProjection();
+  });
+
+  fields.showConstantDollars.addEventListener("change", (event) => {
+    settings.showConstantDollars = event.target.checked;
+    updateProjection();
+  });
+
   fields.targetStartDate.addEventListener("input", (event) => {
     settings.target.startDate = event.target.value;
     updateProjection();
@@ -125,6 +146,8 @@ function renderProjection() {
 }
 
 function renderTargetFields() {
+  fields.inflationRate.value = settings.inflationRate;
+  fields.showConstantDollars.checked = settings.showConstantDollars;
   fields.targetStartDate.value = settings.target.startDate;
   fields.targetAnnualAmount.value = settings.target.annualAmount;
   fields.targetDurationYears.value = settings.target.durationYears;
@@ -326,13 +349,24 @@ function createTargetChange() {
 function buildSchedule(currentSettings) {
   const targetStart = parseDate(currentSettings.target.startDate) ?? new Date();
   const durationYears = Math.max(1, Math.round(numberValue(currentSettings.target.durationYears)));
-  const activeSources = currentSettings.sources.map((source) => ({
-    ...source,
-    balance: isAnnualIncomeSource(source) ? 0 : projectBalanceToDate(source, targetStart),
-    initialAmountApplied: isAnnualIncomeSource(source) ? true : isInitialAmountApplied(source, targetStart)
-  }));
+  const inflationRate = numberValue(currentSettings.inflationRate) / 100;
+  const showConstant = currentSettings.showConstantDollars;
 
-  return Array.from({ length: durationYears }, (_, index) => {
+  const toReal = (nominalRate) =>
+    ((1 + nominalRate / 100) / (1 + inflationRate) - 1) * 100;
+
+  const activeSources = currentSettings.sources.map((source) => {
+    const realReturnRate = toReal(numberValue(source.annualReturnRate));
+    const adjustedSource = { ...source, annualReturnRate: realReturnRate };
+    return {
+      ...source,
+      annualReturnRate: realReturnRate,
+      balance: isAnnualIncomeSource(source) ? 0 : projectBalanceToDate(adjustedSource, targetStart),
+      initialAmountApplied: isAnnualIncomeSource(source) ? true : isInitialAmountApplied(source, targetStart)
+    };
+  });
+
+  const scheduleReal = Array.from({ length: durationYears }, (_, index) => {
     const yearDate = new Date(targetStart);
     yearDate.setFullYear(targetStart.getFullYear() + index);
     const nextYear = new Date(yearDate);
@@ -350,7 +384,7 @@ function buildSchedule(currentSettings) {
 
     activeSources.forEach((source) => {
       if (!isAnnualIncomeSource(source)) return;
-      const amount = annualIncomeForYear(source, yearDate);
+      const amount = roundCurrency(annualIncomeForYear(source, yearDate));
       if (amount > 0) withdrawals.set(source.id, amount);
     });
 
@@ -375,7 +409,8 @@ function buildSchedule(currentSettings) {
         source.balance = 0;
         return;
       }
-      source.balance = growOneYear(source.balance, source.annualReturnRate, endDate && endDate < nextYear ? monthsBetween(yearDate, endDate) / 12 : 1);
+      const fraction = endDate && endDate < nextYear ? monthsBetween(yearDate, endDate) / 12 : 1;
+      source.balance = growOneYear(source.balance, source.annualReturnRate, fraction);
     });
 
     const sourceValues = activeSources.map((source) => ({
@@ -391,6 +426,22 @@ function buildSchedule(currentSettings) {
       target: targetAmount,
       total: roundCurrency(sourceValues.reduce((sum, item) => sum + item.amount, 0)),
       sourceValues
+    };
+  });
+
+  if (showConstant) return scheduleReal;
+
+  return scheduleReal.map((yearReal, index) => {
+    const infMult = Math.pow(1 + inflationRate, index);
+    return {
+      year: yearReal.year,
+      target: roundCurrency(yearReal.target * infMult),
+      total: roundCurrency(yearReal.total * infMult),
+      sourceValues: yearReal.sourceValues.map((sv) => ({
+        ...sv,
+        amount: roundCurrency(sv.amount * infMult),
+        endingBalance: roundCurrency(sv.endingBalance * infMult)
+      }))
     };
   });
 }
@@ -678,6 +729,8 @@ function loadSettings() {
 
 function normalizeSettings(value) {
   return {
+    inflationRate: numberValue(value?.inflationRate ?? defaultSettings.inflationRate),
+    showConstantDollars: value?.showConstantDollars !== undefined ? Boolean(value.showConstantDollars) : defaultSettings.showConstantDollars,
     target: {
       startDate: value?.target?.startDate || defaultSettings.target.startDate,
       annualAmount: numberValue(value?.target?.annualAmount || defaultSettings.target.annualAmount),
@@ -742,6 +795,36 @@ function scheduleSave() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     fields.storageStatus.textContent = "Parametres sauvegardes dans le navigateur";
   }, 120);
+}
+
+function exportToFile() {
+  const json = JSON.stringify(settings, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "configuration-decaissements.json";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function importFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      settings = normalizeSettings(parsed);
+      updateAndRender();
+      fields.storageStatus.textContent = "Configuration importee et sauvegardee";
+    } catch {
+      globalThis.alert("Fichier invalide. Veuillez selectionner un fichier JSON valide.");
+    }
+  });
+  reader.readAsText(file);
+  event.target.value = "";
 }
 
 async function requestPersistentStorage() {
