@@ -11,68 +11,13 @@
       <aside class="config-panel" aria-label="Configuration">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">Configuration</p>
+            <p class="eyebrow">Scenarios</p>
             <h1>Decaissements</h1>
           </div>
-          <div class="panel-header-actions">
-            <button class="icon-button" id="exportSettings" type="button" aria-label="Exporter la configuration" title="Exporter (JSON)">
-              <span aria-hidden="true">↓</span>
-            </button>
-            <button class="icon-button" id="importSettings" type="button" aria-label="Importer une configuration" title="Importer (JSON)">
-              <span aria-hidden="true">↑</span>
-            </button>
-            <button class="icon-button" id="resetSettings" type="button" aria-label="Reinitialiser les parametres" title="Reinitialiser">
-              <span aria-hidden="true">R</span>
-            </button>
-          </div>
+          <button class="text-button" id="addScenario" type="button">Ajouter</button>
         </div>
-        <input type="file" id="importFileInput" accept=".json" class="sr-only">
 
-        <section class="settings-section" aria-labelledby="inflationTitle">
-          <h2 id="inflationTitle">Inflation</h2>
-          <div class="form-grid two-columns">
-            <label>
-              <span>Taux d'inflation annuel (%)</span>
-              <input id="inflationRate" type="number" min="0" max="20" step="0.1">
-            </label>
-          </div>
-          <label class="check-row">
-            <input id="showConstantDollars" type="checkbox" checked>
-            <span>Afficher en dollars constants</span>
-          </label>
-        </section>
-
-        <section class="settings-section" aria-labelledby="targetTitle">
-          <h2 id="targetTitle">Cible</h2>
-          <div class="form-grid two-columns">
-            <label>
-              <span>Date de debut</span>
-              <input id="targetStartDate" type="date">
-            </label>
-            <label>
-              <span>Duree</span>
-              <input id="targetDurationYears" type="number" min="1" max="80" step="1">
-            </label>
-            <label class="wide-field">
-              <span>Decaissement annuel initial</span>
-              <input id="targetAnnualAmount" type="number" min="0" step="100">
-            </label>
-          </div>
-
-          <div class="subsection-title-row">
-            <h3>Changements de cible</h3>
-            <button class="text-button secondary-button" id="addTargetChange" type="button">Ajouter</button>
-          </div>
-          <div id="targetChangesList" class="target-changes-list"></div>
-        </section>
-
-        <section class="settings-section sources-section" aria-labelledby="sourcesTitle">
-          <div class="section-title-row">
-            <h2 id="sourcesTitle">Sources</h2>
-            <button class="text-button" id="addSource" type="button">Ajouter</button>
-          </div>
-          <div id="sourcesList" class="sources-list"></div>
-        </section>
+        <div id="scenariosList" class="scenarios-list"></div>
       </aside>
 
       <section class="workspace" aria-label="Graphique des decaissements">
@@ -214,6 +159,69 @@
           </label>
         </div>
       </article>
+    </template>
+
+    <template id="scenarioBodyTemplate">
+      <div class="scenario-body">
+        <div class="scenario-toolbar">
+          <button class="icon-button export-scenario" type="button" aria-label="Exporter la configuration" title="Exporter (JSON)">
+            <span aria-hidden="true">↓</span>
+          </button>
+          <button class="icon-button import-scenario" type="button" aria-label="Importer une configuration" title="Importer (JSON)">
+            <span aria-hidden="true">↑</span>
+          </button>
+          <button class="icon-button reset-scenario" type="button" aria-label="Reinitialiser les parametres" title="Reinitialiser">
+            <span aria-hidden="true">R</span>
+          </button>
+          <input type="file" class="import-file-input sr-only" accept=".json">
+        </div>
+
+        <section class="settings-section">
+          <h2>Inflation</h2>
+          <div class="form-grid two-columns">
+            <label>
+              <span>Taux d'inflation annuel (%)</span>
+              <input data-scenario-field="inflationRate" type="number" min="0" max="20" step="0.1">
+            </label>
+          </div>
+          <label class="check-row">
+            <input data-scenario-field="showConstantDollars" type="checkbox" checked>
+            <span>Afficher en dollars constants</span>
+          </label>
+        </section>
+
+        <section class="settings-section">
+          <h2>Cible</h2>
+          <div class="form-grid two-columns">
+            <label>
+              <span>Date de debut</span>
+              <input data-scenario-field="targetStartDate" type="date">
+            </label>
+            <label>
+              <span>Duree</span>
+              <input data-scenario-field="targetDurationYears" type="number" min="1" max="80" step="1">
+            </label>
+            <label class="wide-field">
+              <span>Decaissement annuel initial</span>
+              <input data-scenario-field="targetAnnualAmount" type="number" min="0" step="100">
+            </label>
+          </div>
+
+          <div class="subsection-title-row">
+            <h3>Changements de cible</h3>
+            <button class="text-button secondary-button add-target-change" type="button">Ajouter</button>
+          </div>
+          <div class="target-changes-list"></div>
+        </section>
+
+        <section class="settings-section sources-section">
+          <div class="section-title-row">
+            <h2>Sources</h2>
+            <button class="text-button add-source" type="button">Ajouter</button>
+          </div>
+          <div class="sources-list"></div>
+        </section>
+      </div>
     </template>
 
     <script src="app.js"></script>

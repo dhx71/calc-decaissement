@@ -96,6 +96,132 @@ h3 {
   margin-bottom: 4px;
 }
 
+.scenarios-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.scenario {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.scenario[open] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(31, 122, 140, 0.18);
+}
+
+.scenario summary {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  cursor: pointer;
+  gap: 10px;
+  list-style: none;
+  user-select: none;
+}
+
+.scenario summary::-webkit-details-marker {
+  display: none;
+}
+
+.scenario summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 16px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  flex-shrink: 0;
+  transition: transform 160ms ease;
+}
+
+.scenario[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.scenario-header {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 10px;
+}
+
+.scenario-name-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 750;
+  padding: 4px 8px;
+  border-radius: 5px;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.scenario-name-input:hover {
+  border-color: var(--line);
+  background: #fbfcfd;
+}
+
+.scenario-name-input:focus {
+  border-color: var(--accent);
+  background: #fff;
+  outline: none;
+}
+
+.scenario-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.scenario-actions .icon-button {
+  width: 32px;
+  min-height: 32px;
+  font-size: 18px;
+}
+
+.delete-scenario {
+  color: var(--danger);
+  border-color: rgba(180, 35, 24, 0.34);
+}
+
+.delete-scenario:hover {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+.scenario-body {
+  padding: 0 14px 18px;
+}
+
+.scenario-body .settings-section:first-child {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 14px;
+}
+
+.scenario-toolbar {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+
+.scenario-toolbar .icon-button {
+  width: 34px;
+  min-height: 34px;
+  font-size: 16px;
+}
+
 .settings-section {
   margin-top: 24px;
   padding-top: 22px;

@@ -1,4 +1,5 @@
-const STORAGE_KEY = "calc-decaissement-settings-v1";
+const STORAGE_KEY_V2 = "calc-decaissement-scenarios-v2";
+const STORAGE_KEY_V1 = "calc-decaissement-settings-v1";
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const defaultSettings = {
@@ -47,20 +48,10 @@ const defaultSettings = {
 };
 
 const fields = {
-  inflationRate: document.querySelector("#inflationRate"),
-  showConstantDollars: document.querySelector("#showConstantDollars"),
-  targetStartDate: document.querySelector("#targetStartDate"),
-  targetAnnualAmount: document.querySelector("#targetAnnualAmount"),
-  targetDurationYears: document.querySelector("#targetDurationYears"),
-  targetChangesList: document.querySelector("#targetChangesList"),
-  addTargetChange: document.querySelector("#addTargetChange"),
+  scenariosList: document.querySelector("#scenariosList"),
+  addScenario: document.querySelector("#addScenario"),
+  scenarioBodyTemplate: document.querySelector("#scenarioBodyTemplate"),
   targetChangeTemplate: document.querySelector("#targetChangeTemplate"),
-  sourcesList: document.querySelector("#sourcesList"),
-  addSource: document.querySelector("#addSource"),
-  resetSettings: document.querySelector("#resetSettings"),
-  exportSettings: document.querySelector("#exportSettings"),
-  importSettings: document.querySelector("#importSettings"),
-  importFileInput: document.querySelector("#importFileInput"),
   sourceTemplate: document.querySelector("#sourceTemplate"),
   storageStatus: document.querySelector("#storageStatus"),
   summaryStrip: document.querySelector("#summaryStrip"),
@@ -70,70 +61,32 @@ const fields = {
   scheduleBody: document.querySelector("#scheduleBody")
 };
 
-let settings = loadSettings();
+let state = loadState();
 let saveTimer = 0;
+
+Object.defineProperty(globalThis, "settings", {
+  get() {
+    const active = state.scenarios.find((item) => item.id === state.activeScenarioId);
+    return active ? active.settings : null;
+  }
+});
 
 init();
 
 function init() {
   requestPersistentStorage();
-  bindTargetFields();
   renderAll();
 
-  fields.addSource.addEventListener("click", () => {
-    settings.sources.push(createSource());
+  fields.addScenario.addEventListener("click", () => {
+    state.scenarios.push(createScenario());
+    state.activeScenarioId = state.scenarios.at(-1).id;
     updateAndRender();
-  });
-
-  fields.addTargetChange.addEventListener("click", () => {
-    settings.target.changes.push(createTargetChange());
-    updateAndRender();
-  });
-
-  fields.resetSettings.addEventListener("click", () => {
-    const confirmed = globalThis.confirm("Reinitialiser la configuration? Les parametres sauvegardes seront remplaces.");
-    if (!confirmed) return;
-    settings = structuredClone(defaultSettings);
-    settings.sources = settings.sources.map((source) => ({ ...source, id: crypto.randomUUID() }));
-    updateAndRender();
-  });
-
-  fields.exportSettings.addEventListener("click", exportToFile);
-  fields.importSettings.addEventListener("click", () => fields.importFileInput.click());
-  fields.importFileInput.addEventListener("change", importFromFile);
-}
-
-function bindTargetFields() {
-  fields.inflationRate.addEventListener("input", (event) => {
-    settings.inflationRate = numberValue(event.target.value);
-    updateProjection();
-  });
-
-  fields.showConstantDollars.addEventListener("change", (event) => {
-    settings.showConstantDollars = event.target.checked;
-    updateProjection();
-  });
-
-  fields.targetStartDate.addEventListener("input", (event) => {
-    settings.target.startDate = event.target.value;
-    updateProjection();
-  });
-
-  fields.targetAnnualAmount.addEventListener("input", (event) => {
-    settings.target.annualAmount = numberValue(event.target.value);
-    updateProjection();
-  });
-
-  fields.targetDurationYears.addEventListener("input", (event) => {
-    settings.target.durationYears = Math.max(1, Math.round(numberValue(event.target.value)));
-    updateProjection();
   });
 }
 
 function renderAll() {
-  renderTargetFields();
-  renderTargetChanges();
-  renderSources();
+  renderScenarios();
+  renderActiveScenarioBody();
   renderProjection();
 }
 
@@ -145,18 +98,191 @@ function renderProjection() {
   renderTable(schedule, settings.sources);
 }
 
-function renderTargetFields() {
-  fields.inflationRate.value = settings.inflationRate;
-  fields.showConstantDollars.checked = settings.showConstantDollars;
-  fields.targetStartDate.value = settings.target.startDate;
-  fields.targetAnnualAmount.value = settings.target.annualAmount;
-  fields.targetDurationYears.value = settings.target.durationYears;
+function renderScenarios() {
+  fields.scenariosList.replaceChildren();
+
+  if (!state.scenarios.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Aucun scenario configure.";
+    fields.scenariosList.append(empty);
+    return;
+  }
+
+  state.scenarios.forEach((scenario, index) => {
+    const isActive = scenario.id === state.activeScenarioId;
+    const details = document.createElement("details");
+    details.className = "scenario";
+    details.dataset.scenarioId = scenario.id;
+    details.open = isActive;
+
+    const summary = document.createElement("summary");
+    summary.className = "scenario-summary";
+
+    const header = document.createElement("div");
+    header.className = "scenario-header";
+
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.className = "scenario-name-input";
+    nameInput.value = scenario.name;
+    nameInput.maxLength = 60;
+    nameInput.addEventListener("input", (event) => {
+      scenario.name = event.target.value || "Sans nom";
+      scheduleSave();
+    });
+    nameInput.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "scenario-actions";
+
+    const cloneButton = document.createElement("button");
+    cloneButton.className = "icon-button";
+    cloneButton.type = "button";
+    cloneButton.title = "Cloner ce scenario";
+    cloneButton.innerHTML = '<span aria-hidden="true">+</span>';
+    cloneButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const cloned = cloneScenario(scenario);
+      state.scenarios.splice(index + 1, 0, cloned);
+      state.activeScenarioId = cloned.id;
+      updateAndRender();
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "icon-button delete-scenario";
+    deleteButton.type = "button";
+    deleteButton.title = "Supprimer ce scenario";
+    deleteButton.innerHTML = '<span aria-hidden="true">x</span>';
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (state.scenarios.length <= 1) {
+        globalThis.alert("Vous devez avoir au moins un scenario.");
+        return;
+      }
+      const confirmed = globalThis.confirm(`Supprimer le scenario "${scenario.name}"?`);
+      if (!confirmed) return;
+      state.scenarios = state.scenarios.filter((item) => item.id !== scenario.id);
+      if (state.activeScenarioId === scenario.id) {
+        state.activeScenarioId = state.scenarios[0].id;
+      }
+      updateAndRender();
+    });
+
+    actions.append(cloneButton, deleteButton);
+    header.append(nameInput, actions);
+    summary.append(header);
+    details.append(summary);
+
+    details.addEventListener("toggle", () => {
+      if (details.open) {
+        if (scenario.id !== state.activeScenarioId) {
+          state.activeScenarioId = scenario.id;
+          updateAndRender();
+        }
+      } else {
+        details.open = true;
+      }
+    });
+
+    fields.scenariosList.append(details);
+  });
 }
 
-function renderTargetChanges() {
-  fields.targetChangesList.replaceChildren();
+function renderActiveScenarioBody() {
+  if (!settings) return;
 
-  const changes = sortedTargetChanges(settings.target.changes);
+  document.querySelectorAll(".scenario-body").forEach((el) => el.remove());
+
+  const activeDetails = fields.scenariosList.querySelector(`.scenario[data-scenario-id="${state.activeScenarioId}"]`);
+  if (!activeDetails) return;
+
+  const body = fields.scenarioBodyTemplate.content.firstElementChild.cloneNode(true);
+
+  bindScenarioToolbar(body);
+  bindScenarioFields(body);
+  renderTargetChangesInto(body, settings);
+  renderSourcesInto(body, settings);
+
+  activeDetails.append(body);
+}
+
+function bindScenarioToolbar(body) {
+  const fileInput = body.querySelector(".import-file-input");
+
+  body.querySelector(".export-scenario").addEventListener("click", () => exportScenarioToFile());
+  body.querySelector(".import-scenario").addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", (event) => importScenarioFromFile(event, fileInput));
+
+  body.querySelector(".reset-scenario").addEventListener("click", () => {
+    const confirmed = globalThis.confirm("Reinitialiser la configuration? Les parametres sauvegardes seront remplaces.");
+    if (!confirmed) return;
+    const activeScenario = state.scenarios.find((item) => item.id === state.activeScenarioId);
+    activeScenario.settings = structuredClone(defaultSettings);
+    activeScenario.settings.sources = activeScenario.settings.sources.map((source) => ({
+      ...source,
+      id: crypto.randomUUID()
+    }));
+    updateAndRender();
+  });
+}
+
+function bindScenarioFields(body) {
+  const inflationRate = body.querySelector('[data-scenario-field="inflationRate"]');
+  const showConstantDollars = body.querySelector('[data-scenario-field="showConstantDollars"]');
+  const targetStartDate = body.querySelector('[data-scenario-field="targetStartDate"]');
+  const targetAnnualAmount = body.querySelector('[data-scenario-field="targetAnnualAmount"]');
+  const targetDurationYears = body.querySelector('[data-scenario-field="targetDurationYears"]');
+
+  inflationRate.value = settings.inflationRate;
+  showConstantDollars.checked = settings.showConstantDollars;
+
+  inflationRate.addEventListener("input", (event) => {
+    settings.inflationRate = numberValue(event.target.value);
+    updateProjection();
+  });
+
+  showConstantDollars.addEventListener("change", (event) => {
+    settings.showConstantDollars = event.target.checked;
+    updateProjection();
+  });
+
+  targetStartDate.value = settings.target.startDate;
+  targetStartDate.addEventListener("input", (event) => {
+    settings.target.startDate = event.target.value;
+    updateProjection();
+  });
+
+  targetAnnualAmount.value = settings.target.annualAmount;
+  targetAnnualAmount.addEventListener("input", (event) => {
+    settings.target.annualAmount = numberValue(event.target.value);
+    updateProjection();
+  });
+
+  targetDurationYears.value = settings.target.durationYears;
+  targetDurationYears.addEventListener("input", (event) => {
+    settings.target.durationYears = Math.max(1, Math.round(numberValue(event.target.value)));
+    updateProjection();
+  });
+
+  body.querySelector(".add-target-change").addEventListener("click", () => {
+    settings.target.changes.push(createTargetChange());
+    updateAndRender();
+  });
+
+  body.querySelector(".add-source").addEventListener("click", () => {
+    settings.sources.push(createSource());
+    updateAndRender();
+  });
+}
+
+function renderTargetChangesInto(body, currentSettings) {
+  const list = body.querySelector(".target-changes-list");
+  list.replaceChildren();
+
+  const changes = sortedTargetChanges(currentSettings.target.changes);
   changes.forEach((change) => {
     const node = fields.targetChangeTemplate.content.firstElementChild.cloneNode(true);
     node.dataset.targetChangeId = change.id;
@@ -168,26 +294,27 @@ function renderTargetChanges() {
     });
 
     node.querySelector(".remove-target-change").addEventListener("click", () => {
-      settings.target.changes = settings.target.changes.filter((item) => item.id !== change.id);
+      currentSettings.target.changes = currentSettings.target.changes.filter((item) => item.id !== change.id);
       updateAndRender();
     });
 
-    fields.targetChangesList.append(node);
+    list.append(node);
   });
 }
 
-function renderSources() {
-  fields.sourcesList.replaceChildren();
+function renderSourcesInto(body, currentSettings) {
+  const list = body.querySelector(".sources-list");
+  list.replaceChildren();
 
-  if (!settings.sources.length) {
+  if (!currentSettings.sources.length) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
     empty.textContent = "Aucune source configuree.";
-    fields.sourcesList.append(empty);
+    list.append(empty);
     return;
   }
 
-  settings.sources.forEach((source, index) => {
+  currentSettings.sources.forEach((source, index) => {
     const node = fields.sourceTemplate.content.firstElementChild.cloneNode(true);
     node.dataset.sourceId = source.id;
     node.dataset.sourceType = source.type;
@@ -217,17 +344,17 @@ function renderSources() {
     const moveUpButton = node.querySelector(".move-source-up");
     const moveDownButton = node.querySelector(".move-source-down");
     moveUpButton.disabled = index === 0;
-    moveDownButton.disabled = index === settings.sources.length - 1;
+    moveDownButton.disabled = index === currentSettings.sources.length - 1;
 
     moveUpButton.addEventListener("click", () => moveSource(source.id, -1));
     moveDownButton.addEventListener("click", () => moveSource(source.id, 1));
 
     node.querySelector(".remove-source").addEventListener("click", () => {
-      settings.sources = settings.sources.filter((item) => item.id !== source.id);
+      currentSettings.sources = currentSettings.sources.filter((item) => item.id !== source.id);
       updateAndRender();
     });
 
-    fields.sourcesList.append(node);
+    list.append(node);
   });
 }
 
@@ -314,6 +441,25 @@ function updateProjection() {
   renderProjection();
 }
 
+function createScenario() {
+  return {
+    id: crypto.randomUUID(),
+    name: `Scenario ${state.scenarios.length + 1}`,
+    settings: structuredClone(defaultSettings)
+  };
+}
+
+function cloneScenario(source) {
+  const clonedSettings = JSON.parse(JSON.stringify(source.settings));
+  clonedSettings.sources.forEach((s) => { s.id = crypto.randomUUID(); });
+  clonedSettings.target.changes.forEach((c) => { c.id = crypto.randomUUID(); });
+  return {
+    id: crypto.randomUUID(),
+    name: `${source.name} (copie)`,
+    settings: clonedSettings
+  };
+}
+
 function createSource() {
   const color = nextColor(settings.sources.length);
   return {
@@ -346,6 +492,37 @@ function createTargetChange() {
   };
 }
 
+function exportScenarioToFile() {
+  const json = JSON.stringify(settings, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "configuration-decaissements.json";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function importScenarioFromFile(event, fileInput) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const activeScenario = state.scenarios.find((item) => item.id === state.activeScenarioId);
+      activeScenario.settings = normalizeSettings(parsed);
+      updateAndRender();
+      fields.storageStatus.textContent = "Configuration importee et sauvegardee";
+    } catch {
+      globalThis.alert("Fichier invalide. Veuillez selectionner un fichier JSON valide.");
+    }
+  });
+  reader.readAsText(file);
+  fileInput.value = "";
+}
+
 function buildSchedule(currentSettings) {
   const targetStart = parseDate(currentSettings.target.startDate) ?? new Date();
   const durationYears = Math.max(1, Math.round(numberValue(currentSettings.target.durationYears)));
@@ -357,11 +534,10 @@ function buildSchedule(currentSettings) {
 
   const activeSources = currentSettings.sources.map((source) => {
     const realReturnRate = toReal(numberValue(source.annualReturnRate));
-    const adjustedSource = { ...source, annualReturnRate: realReturnRate };
     return {
       ...source,
       annualReturnRate: realReturnRate,
-      balance: isAnnualIncomeSource(source) ? 0 : projectBalanceToDate(adjustedSource, targetStart),
+      balance: isAnnualIncomeSource(source) ? 0 : projectBalanceToDate({ ...source, annualReturnRate: realReturnRate }, targetStart),
       initialAmountApplied: isAnnualIncomeSource(source) ? true : isInitialAmountApplied(source, targetStart)
     };
   });
@@ -716,15 +892,47 @@ function renderTable(schedule, sources) {
   });
 }
 
-function loadSettings() {
+function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return structuredClone(defaultSettings);
-    const parsed = JSON.parse(raw);
-    return normalizeSettings(parsed);
-  } catch {
-    return structuredClone(defaultSettings);
-  }
+    const raw = localStorage.getItem(STORAGE_KEY_V2);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return normalizeState(parsed);
+    }
+  } catch {}
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_V1);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const settings = normalizeSettings(parsed);
+      const id = crypto.randomUUID();
+      return {
+        scenarios: [{ id, name: "Scenario 1", settings }],
+        activeScenarioId: id
+      };
+    }
+  } catch {}
+
+  const initialSettings = structuredClone(defaultSettings);
+  const scenario = { id: crypto.randomUUID(), name: "Scenario 1", settings: initialSettings };
+  return { scenarios: [scenario], activeScenarioId: scenario.id };
+}
+
+function normalizeState(value) {
+  const scenarios = Array.isArray(value?.scenarios) && value.scenarios.length > 0
+    ? value.scenarios.map((item) => ({
+        id: item.id || crypto.randomUUID(),
+        name: item.name || "Sans nom",
+        settings: normalizeSettings(item.settings || {})
+      }))
+    : [{ id: crypto.randomUUID(), name: "Scenario 1", settings: structuredClone(defaultSettings) }];
+
+  const activeId = value?.activeScenarioId && scenarios.find((item) => item.id === value.activeScenarioId)
+    ? value.activeScenarioId
+    : scenarios[0].id;
+
+  return { scenarios, activeScenarioId: activeId };
 }
 
 function normalizeSettings(value) {
@@ -792,39 +1000,9 @@ function targetAmountForDate(target, date) {
 function scheduleSave() {
   globalThis.clearTimeout(saveTimer);
   saveTimer = globalThis.setTimeout(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(state));
     fields.storageStatus.textContent = "Parametres sauvegardes dans le navigateur";
   }, 120);
-}
-
-function exportToFile() {
-  const json = JSON.stringify(settings, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "configuration-decaissements.json";
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function importFromFile(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.addEventListener("load", () => {
-    try {
-      const parsed = JSON.parse(reader.result);
-      settings = normalizeSettings(parsed);
-      updateAndRender();
-      fields.storageStatus.textContent = "Configuration importee et sauvegardee";
-    } catch {
-      globalThis.alert("Fichier invalide. Veuillez selectionner un fichier JSON valide.");
-    }
-  });
-  reader.readAsText(file);
-  event.target.value = "";
 }
 
 async function requestPersistentStorage() {
