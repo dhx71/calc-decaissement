@@ -57,6 +57,8 @@ const fields = {
   summaryStrip: document.querySelector("#summaryStrip"),
   legend: document.querySelector("#legend"),
   chart: document.querySelector("#chart"),
+  avoirNetteChart: document.querySelector("#avoirNetteChart"),
+  avoirNetteLegend: document.querySelector("#avoirNetteLegend"),
   scheduleHead: document.querySelector("#scheduleHead"),
   scheduleBody: document.querySelector("#scheduleBody")
 };
@@ -99,6 +101,7 @@ function renderProjection() {
   renderSummary(schedule);
   renderLegend(settings.sources);
   renderChart(schedule, settings);
+  renderAvoirNetteChart(schedule, settings);
   renderTable(schedule, settings.sources);
 }
 
@@ -654,19 +657,30 @@ function buildSchedule(currentSettings) {
       id: source.id,
       name: source.name,
       color: source.color,
-      amount: roundCurrency(withdrawals.get(source.id) ?? 0),
-      endingBalance: roundCurrency(source.balance)
+      amount: withdrawals.get(source.id) ?? 0,
+      endingBalance: source.balance
     }));
 
     return {
       year,
       target: targetAmount,
-      total: roundCurrency(sourceValues.reduce((sum, item) => sum + item.amount, 0)),
+      total: sourceValues.reduce((sum, item) => sum + item.amount, 0),
       sourceValues
     };
   });
 
-  if (showConstant) return scheduleReal;
+  if (showConstant) {
+    return scheduleReal.map((yearReal) => ({
+      year: yearReal.year,
+      target: roundCurrency(yearReal.target),
+      total: roundCurrency(yearReal.total),
+      sourceValues: yearReal.sourceValues.map((sv) => ({
+        ...sv,
+        amount: roundCurrency(sv.amount),
+        endingBalance: roundCurrency(sv.endingBalance)
+      }))
+    }));
+  }
 
   return scheduleReal.map((yearReal, index) => {
     const infMult = Math.pow(1 + inflationRate, index);
@@ -754,7 +768,7 @@ function growOneYear(balance, annualReturnRate, fractionOfYear) {
 function renderSummary(schedule) {
   const totalWithdrawn = schedule.reduce((sum, year) => sum + year.total, 0);
   const targetTotal = schedule.reduce((sum, year) => sum + year.target, 0);
-  const firstShortfall = schedule.find((year) => year.total + 0.01 < year.target);
+  const firstShortfall = schedule.find((year) => Math.round(year.total * 100) + 1 < Math.round(year.target * 100));
   const remainingBalance = finalEndingBalance(schedule);
   const surplus = Math.max(0, totalWithdrawn - targetTotal) + remainingBalance;
   const shortfall = Math.max(0, targetTotal - totalWithdrawn);
@@ -862,6 +876,98 @@ function renderChart(schedule, currentSettings) {
 
     tooltipRect(svg, x, barTop, barWidth, margin.top + chartHeight - barTop, barTooltipText(year));
   });
+}
+
+function renderAvoirNetteChart(schedule, currentSettings) {
+  const svg = fields.avoirNetteChart;
+  svg.replaceChildren();
+
+  const width = Math.max(720, schedule.length * 64 + 120);
+  const height = 460;
+  const margin = { top: 32, right: 28, bottom: 52, left: 86 };
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+  const maxTotal = Math.max(...schedule.map((year) =>
+    year.sourceValues.reduce((sum, sv) => sum + (sv.endingBalance || 0), 0)
+  ), 1);
+  const yMax = niceMax(maxTotal * 1.12);
+  const barGap = 14;
+  const barWidth = Math.max(26, chartWidth / schedule.length - barGap);
+  const yearSlotWidth = chartWidth / schedule.length;
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("aria-label", "Avoir nette annuel par source");
+
+  renderAvoirNetteLegend(currentSettings.sources);
+
+  for (let step = 0; step <= 4; step += 1) {
+    const value = (yMax / 4) * step;
+    const y = margin.top + chartHeight - (value / yMax) * chartHeight;
+    line(svg, margin.left, y, width - margin.right, y, "grid-line");
+    text(svg, margin.left - 10, y + 4, compactCurrency(value), "axis-label", "end");
+  }
+
+  line(svg, margin.left, margin.top, margin.left, margin.top + chartHeight, "axis-line");
+  line(svg, margin.left, margin.top + chartHeight, width - margin.right, margin.top + chartHeight, "axis-line");
+
+  schedule.forEach((year, index) => {
+    const x = margin.left + index * yearSlotWidth + barGap / 2;
+    let yCursor = margin.top + chartHeight;
+
+    const totalBalance = year.sourceValues.reduce((sum, sv) => sum + (sv.endingBalance || 0), 0);
+    const barTop = totalBalance > 0
+      ? margin.top + chartHeight - (totalBalance / yMax) * chartHeight
+      : margin.top + chartHeight - 1;
+
+    year.sourceValues.forEach((sourceValue) => {
+      const balance = sourceValue.endingBalance || 0;
+      if (balance <= 0) return;
+      const segmentHeight = (balance / yMax) * chartHeight;
+      yCursor -= segmentHeight;
+      rect(svg, x, yCursor, barWidth, segmentHeight, sourceValue.color);
+    });
+
+    text(svg, x + barWidth / 2, margin.top + chartHeight + 24, String(year.year), "axis-label", "middle");
+    if (totalBalance > 0) {
+      const totalY = margin.top + chartHeight - (totalBalance / yMax) * chartHeight;
+      text(svg, x + barWidth / 2, Math.max(14, totalY - 8), compactCurrency(totalBalance), "bar-label", "middle");
+    }
+
+    tooltipRect(svg, x, barTop, barWidth, margin.top + chartHeight - barTop, avoirNetteTooltipText(year));
+  });
+}
+
+function renderAvoirNetteLegend(sources) {
+  fields.avoirNetteLegend.replaceChildren();
+  sources.forEach((source) => {
+    const item = document.createElement("span");
+    item.className = "legend-item";
+    const swatch = document.createElement("span");
+    swatch.className = "legend-swatch";
+    swatch.style.background = source.color;
+    const label = document.createElement("span");
+    label.textContent = source.name;
+    item.append(swatch, label);
+    fields.avoirNetteLegend.append(item);
+  });
+}
+
+function avoirNetteTooltipText(year) {
+  const lines = [`${year.year}`];
+  const totalBalance = year.sourceValues.reduce((sum, sv) => sum + (sv.endingBalance || 0), 0);
+  lines.push(`Avoir nette total: ${currency(totalBalance)}`);
+
+  const sourceLines = year.sourceValues
+    .filter((sourceValue) => (sourceValue.endingBalance || 0) > 0)
+    .map((sourceValue) => `${sourceValue.name} (${sourceValue.color}): ${currency(sourceValue.endingBalance)}`);
+
+  if (sourceLines.length > 0) {
+    lines.push(...sourceLines);
+  } else {
+    lines.push("Aucun avoir");
+  }
+
+  return lines.join("\n");
 }
 
 function barTooltipText(year) {
