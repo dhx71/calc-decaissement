@@ -299,6 +299,19 @@ function renderTargetChangesInto(body, currentSettings) {
       const key = input.dataset.targetChangeField;
       input.value = change[key];
       input.addEventListener("input", () => updateTargetChangeValue(change.id, key, input));
+      if (key === "startDate") {
+        input.addEventListener("change", () => {
+          const body = document.querySelector('.scenario-body');
+          if (!body) return;
+          const list = body.querySelector('.target-changes-list');
+          if (!list) return;
+          settings.target.changes = sortedTargetChanges(settings.target.changes);
+          settings.target.changes.forEach((c) => {
+            const el = list.querySelector(`[data-target-change-id="${c.id}"]`);
+            if (el) list.appendChild(el);
+          });
+        });
+      }
     });
 
     node.querySelector(".remove-target-change").addEventListener("click", () => {
@@ -432,7 +445,7 @@ function updateTargetChangeValue(changeId, key, input) {
   if (key === "startDate") {
     if (!parseDate(change.startDate)) return;
     settings.target.changes = sortedTargetChanges(settings.target.changes);
-    updateAndRender();
+    updateProjection();
     return;
   }
 
@@ -446,7 +459,12 @@ function updateAndRender() {
 
 function updateProjection() {
   scheduleSave();
+  const activeElement = document.activeElement;
+  const isTargetChangeDate = activeElement?.matches('[data-target-change-field="startDate"]');
   renderProjection();
+  if (isTargetChangeDate && activeElement !== document.activeElement) {
+    activeElement.focus();
+  }
 }
 
 function createScenario() {
