@@ -90,11 +90,14 @@
     <template id="sourceTemplate">
       <article class="source-card">
         <div class="source-card-header">
-          <button class="source-summary-button" type="button" aria-expanded="true">
-            <span class="source-toggle-icon" aria-hidden="true">▾</span>
-            <span class="source-summary-color" aria-hidden="true"></span>
-            <span class="source-summary-name"></span>
-          </button>
+          <div class="source-header-left">
+            <button class="source-summary-button" type="button" aria-expanded="true">
+              <span class="source-toggle-icon" aria-hidden="true">▾</span>
+              <span class="source-summary-color" aria-hidden="true"></span>
+              <span class="source-summary-name"></span>
+            </button>
+            <input data-field="enabled" class="source-enabled-checkbox" type="checkbox" aria-label="Inclure dans le calcul" title="Inclure dans le calcul" checked>
+          </div>
           <div class="source-actions">
             <button class="icon-button move-source-up" type="button" aria-label="Monter la source" title="Monter">
               <span aria-hidden="true">↑</span>

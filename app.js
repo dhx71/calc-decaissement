@@ -26,7 +26,8 @@ const defaultSettings = {
       withdrawalStartDate: "2035-01-01",
       annualReturnRate: 4.5,
       endDate: "2059-12-31",
-      constantWithdrawal: false
+      constantWithdrawal: false,
+      enabled: true
     },
     {
       id: crypto.randomUUID(),
@@ -42,7 +43,8 @@ const defaultSettings = {
       withdrawalStartDate: "2035-01-01",
       annualReturnRate: 4,
       endDate: "2059-12-31",
-      constantWithdrawal: true
+      constantWithdrawal: true,
+      enabled: true
     }
   ]
 };
@@ -502,7 +504,8 @@ function createSource() {
     withdrawalStartDate: settings.target.startDate,
     annualReturnRate: 4,
     endDate: endOfTarget(settings.target),
-    constantWithdrawal: false
+    constantWithdrawal: false,
+    enabled: true
   };
 }
 
@@ -614,7 +617,9 @@ function buildSchedule(currentSettings) {
   const toReal = (nominalRate) =>
     ((1 + nominalRate / 100) / (1 + inflationRate) - 1) * 100;
 
-  const activeSources = currentSettings.sources.map((source) => {
+  const activeSources = currentSettings.sources
+    .filter((source) => source.enabled !== false)
+    .map((source) => {
     const realReturnRate = toReal(numberValue(source.annualReturnRate));
     return {
       ...source,
@@ -833,7 +838,7 @@ function renderLegend(sources) {
   fields.legend.replaceChildren();
   sources.forEach((source) => {
     const item = document.createElement("span");
-    item.className = "legend-item";
+    item.className = source.enabled !== false ? "legend-item" : "legend-item legend-item--disabled";
     const swatch = document.createElement("span");
     swatch.className = "legend-swatch";
     swatch.style.background = source.color;
@@ -959,7 +964,7 @@ function renderAvoirNetteLegend(sources) {
   fields.avoirNetteLegend.replaceChildren();
   sources.forEach((source) => {
     const item = document.createElement("span");
-    item.className = "legend-item";
+    item.className = source.enabled !== false ? "legend-item" : "legend-item legend-item--disabled";
     const swatch = document.createElement("span");
     swatch.className = "legend-swatch";
     swatch.style.background = source.color;
@@ -1144,7 +1149,8 @@ function normalizeSettings(value) {
       withdrawalStartDate: source.withdrawalStartDate || defaultSettings.target.startDate,
       annualReturnRate: numberValue(source.annualReturnRate),
       endDate: source.endDate || endOfTarget(value?.target || defaultSettings.target),
-      constantWithdrawal: Boolean(source.constantWithdrawal)
+      constantWithdrawal: Boolean(source.constantWithdrawal),
+      enabled: source.enabled !== false
     })) : []
   };
 }

@@ -37,7 +37,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  grid-template-columns: minmax(380px, 450px) minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -364,6 +364,22 @@ button:focus-visible {
   align-items: center;
 }
 
+.source-header-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 0;
+}
+
+.source-enabled-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0 0 0 10px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .source-card-body[hidden] {
   display: none;
 }
@@ -559,6 +575,11 @@ button:focus-visible {
   width: 12px;
   height: 12px;
   border-radius: 3px;
+}
+
+.legend-item--disabled {
+  opacity: 0.45;
+  text-decoration: line-through;
 }
 
 .chart-wrap {
