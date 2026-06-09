@@ -51,6 +51,7 @@ button {
 .panel-header,
 .workspace-header,
 .section-title-row,
+.section-header-row,
 .subsection-title-row,
 .source-card-header,
 .chart-header {
@@ -380,8 +381,39 @@ button:focus-visible {
   cursor: pointer;
 }
 
-.source-card-body[hidden] {
+.source-card-body[hidden],
+.section-body[hidden] {
   display: none;
+}
+
+.section-toggle-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  min-height: 32px;
+}
+
+.section-toggle-button:hover {
+  color: var(--accent-strong);
+}
+
+.section-toggle-button h2 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.section-toggle-icon {
+  width: 18px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 900;
+  text-align: center;
+  flex: 0 0 auto;
 }
 
 .source-card[data-source-type="investment"] .income-field,

@@ -5,6 +5,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const defaultSettings = {
   inflationRate: 2,
   showConstantDollars: true,
+  sectionCollapsed: { inflation: false, cible: false, sources: false },
   target: {
     startDate: "2035-01-01",
     annualAmount: 60000,
@@ -240,6 +241,14 @@ function bindScenarioToolbar(body) {
 }
 
 function bindScenarioFields(body) {
+  body.querySelectorAll(".settings-section[data-section]").forEach((section) => {
+    const key = section.dataset.section;
+    updateSectionCollapseState(section, settings.sectionCollapsed[key]);
+    section.querySelector(".section-toggle-button").addEventListener("click", () => {
+      toggleSectionCollapsed(key, section);
+    });
+  });
+
   const inflationRate = body.querySelector('[data-scenario-field="inflationRate"]');
   const showConstantDollars = body.querySelector('[data-scenario-field="showConstantDollars"]');
   const targetStartDate = body.querySelector('[data-scenario-field="targetStartDate"]');
@@ -398,6 +407,21 @@ function updateSourceCollapseState(node, source) {
 
   node.dataset.collapsed = String(collapsed);
   summaryButton.setAttribute("aria-expanded", String(!collapsed));
+  body.hidden = collapsed;
+  icon.textContent = collapsed ? "▸" : "▾";
+}
+
+function toggleSectionCollapsed(key, sectionEl) {
+  settings.sectionCollapsed[key] = !settings.sectionCollapsed[key];
+  updateSectionCollapseState(sectionEl, settings.sectionCollapsed[key]);
+  scheduleSave();
+}
+
+function updateSectionCollapseState(sectionEl, collapsed) {
+  const button = sectionEl.querySelector(".section-toggle-button");
+  const body = sectionEl.querySelector(".section-body");
+  const icon = sectionEl.querySelector(".section-toggle-icon");
+  button.setAttribute("aria-expanded", String(!collapsed));
   body.hidden = collapsed;
   icon.textContent = collapsed ? "▸" : "▾";
 }
@@ -1134,6 +1158,11 @@ function normalizeSettings(value) {
       annualAmount: numberValue(value?.target?.annualAmount || defaultSettings.target.annualAmount),
       durationYears: Math.max(1, Math.round(numberValue(value?.target?.durationYears || defaultSettings.target.durationYears))),
       changes: normalizeTargetChanges(value?.target?.changes)
+    },
+    sectionCollapsed: {
+      inflation: Boolean(value?.sectionCollapsed?.inflation),
+      cible: Boolean(value?.sectionCollapsed?.cible),
+      sources: Boolean(value?.sectionCollapsed?.sources)
     },
     sources: Array.isArray(value?.sources) ? value.sources.map((source, index) => ({
       id: source.id || crypto.randomUUID(),

@@ -193,50 +193,69 @@
           <input type="file" class="import-file-input sr-only" accept=".json">
         </div>
 
-        <section class="settings-section">
-          <h2>Inflation</h2>
-          <div class="form-grid two-columns">
-            <label>
-              <span>Taux d'inflation annuel (%)</span>
-              <input data-scenario-field="inflationRate" type="number" min="0" max="20" step="0.1">
+        <section class="settings-section" data-section="inflation">
+          <div class="section-header-row">
+            <button class="section-toggle-button" type="button" aria-expanded="true">
+              <span class="section-toggle-icon">▾</span>
+              <h2>Inflation</h2>
+            </button>
+          </div>
+          <div class="section-body">
+            <div class="form-grid two-columns">
+              <label>
+                <span>Taux d'inflation annuel (%)</span>
+                <input data-scenario-field="inflationRate" type="number" min="0" max="20" step="0.1">
+              </label>
+            </div>
+            <label class="check-row">
+              <input data-scenario-field="showConstantDollars" type="checkbox" checked>
+              <span>Afficher en dollars constants</span>
             </label>
           </div>
-          <label class="check-row">
-            <input data-scenario-field="showConstantDollars" type="checkbox" checked>
-            <span>Afficher en dollars constants</span>
-          </label>
         </section>
 
-        <section class="settings-section">
-          <h2>Cible</h2>
-          <div class="form-grid two-columns">
-            <label>
-              <span>Date de debut</span>
-              <input data-scenario-field="targetStartDate" type="date">
-            </label>
-            <label>
-              <span>Duree</span>
-              <input data-scenario-field="targetDurationYears" type="number" min="1" max="80" step="1">
-            </label>
-            <label class="wide-field">
-              <span>Decaissement annuel initial</span>
-              <input data-scenario-field="targetAnnualAmount" type="number" min="0" step="100">
-            </label>
+        <section class="settings-section" data-section="cible">
+          <div class="section-header-row">
+            <button class="section-toggle-button" type="button" aria-expanded="true">
+              <span class="section-toggle-icon">▾</span>
+              <h2>Cible</h2>
+            </button>
           </div>
+          <div class="section-body">
+            <div class="form-grid two-columns">
+              <label>
+                <span>Date de debut</span>
+                <input data-scenario-field="targetStartDate" type="date">
+              </label>
+              <label>
+                <span>Duree</span>
+                <input data-scenario-field="targetDurationYears" type="number" min="1" max="80" step="1">
+              </label>
+              <label class="wide-field">
+                <span>Decaissement annuel initial</span>
+                <input data-scenario-field="targetAnnualAmount" type="number" min="0" step="100">
+              </label>
+            </div>
 
-          <div class="subsection-title-row">
-            <h3>Changements de cible</h3>
-            <button class="text-button secondary-button add-target-change" type="button">Ajouter</button>
+            <div class="subsection-title-row">
+              <h3>Changements de cible</h3>
+              <button class="text-button secondary-button add-target-change" type="button">Ajouter</button>
+            </div>
+            <div class="target-changes-list"></div>
           </div>
-          <div class="target-changes-list"></div>
         </section>
 
-        <section class="settings-section sources-section">
-          <div class="section-title-row">
-            <h2>Sources</h2>
+        <section class="settings-section sources-section" data-section="sources">
+          <div class="section-header-row">
+            <button class="section-toggle-button" type="button" aria-expanded="true">
+              <span class="section-toggle-icon">▾</span>
+              <h2>Sources</h2>
+            </button>
             <button class="text-button add-source" type="button">Ajouter</button>
           </div>
-          <div class="sources-list"></div>
+          <div class="section-body">
+            <div class="sources-list"></div>
+          </div>
         </section>
       </div>
     </template>
