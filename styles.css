@@ -417,7 +417,12 @@ button:focus-visible {
 }
 
 .source-card[data-source-type="investment"] .income-field,
-.source-card[data-source-type="annualIncome"] .investment-field {
+.source-card[data-source-type="investment"] .expense-field,
+.source-card[data-source-type="annualIncome"] .investment-field,
+.source-card[data-source-type="annualIncome"] .expense-field,
+.source-card[data-source-type="expense"] .investment-field,
+.source-card[data-source-type="expense"] .income-field,
+.source-card[data-source-type="expense"] .withdrawal-field {
   display: none;
 }
 

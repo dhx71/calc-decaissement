@@ -529,6 +529,8 @@ function createSource() {
     annualReturnRate: 4,
     endDate: endOfTarget(settings.target),
     constantWithdrawal: false,
+    expenseAmount: 0,
+    expenseDate: settings.target.startDate,
     enabled: true
   };
 }
@@ -645,11 +647,12 @@ function buildSchedule(currentSettings) {
     .filter((source) => source.enabled !== false)
     .map((source) => {
     const realReturnRate = toReal(numberValue(source.annualReturnRate));
+    const noBalance = isAnnualIncomeSource(source) || isExpenseSource(source);
     return {
       ...source,
       annualReturnRate: realReturnRate,
-      balance: isAnnualIncomeSource(source) ? 0 : projectBalanceToDate({ ...source, annualReturnRate: realReturnRate }, targetStart),
-      initialAmountApplied: isAnnualIncomeSource(source) ? true : isInitialAmountApplied(source, targetStart)
+      balance: noBalance ? 0 : projectBalanceToDate({ ...source, annualReturnRate: realReturnRate }, targetStart),
+      initialAmountApplied: noBalance ? true : isInitialAmountApplied(source, targetStart)
     };
   });
 
@@ -665,7 +668,7 @@ function buildSchedule(currentSettings) {
     activeSources.forEach((source) => withdrawals.set(source.id, 0));
 
     activeSources.forEach((source) => {
-      if (isAnnualIncomeSource(source)) return;
+      if (isAnnualIncomeSource(source) || isExpenseSource(source)) return;
       applyFutureInitialAmount(source, yearDate, nextYear);
     });
 
@@ -675,22 +678,37 @@ function buildSchedule(currentSettings) {
       if (amount > 0) withdrawals.set(source.id, amount);
     });
 
+    let yearExpense = 0;
+    const expenseMap = new Map();
     activeSources.forEach((source) => {
-      if (isAnnualIncomeSource(source) || !source.constantWithdrawal || !canWithdraw(source, yearDate)) return;
+      if (!isExpenseSource(source)) return;
+      const expDate = parseDate(source.expenseDate);
+      if (expDate && expDate >= yearDate && expDate < nextYear) {
+        const expAmount = roundCurrency(numberValue(source.expenseAmount));
+        yearExpense += expAmount;
+        expenseMap.set(source.id, expAmount);
+      }
+    });
+    const totalTarget = targetAmount + yearExpense;
+
+    activeSources.forEach((source) => {
+      if (isAnnualIncomeSource(source) || isExpenseSource(source) || !source.constantWithdrawal || !canWithdraw(source, yearDate)) return;
       const amount = constantWithdrawalAmount(source, yearDate);
       withdrawFromSource(source, amount, withdrawals);
     });
 
-    let remainingTarget = Math.max(0, targetAmount - totalWithdrawals(withdrawals));
+    let remainingTarget = Math.max(0, totalTarget - totalWithdrawals(withdrawals));
     activeSources.forEach((source) => {
-      if (isAnnualIncomeSource(source) || source.constantWithdrawal || !canWithdraw(source, yearDate) || remainingTarget <= 0) return;
+      if (isAnnualIncomeSource(source) || isExpenseSource(source) || source.constantWithdrawal || !canWithdraw(source, yearDate) || remainingTarget <= 0) return;
       const amount = Math.min(source.balance, remainingTarget);
       withdrawFromSource(source, amount, withdrawals);
       remainingTarget -= amount;
     });
 
+    expenseMap.forEach((amount, id) => withdrawals.set(id, amount));
+
     activeSources.forEach((source) => {
-      if (isAnnualIncomeSource(source)) return;
+      if (isAnnualIncomeSource(source) || isExpenseSource(source)) return;
       const endDate = parseDate(source.endDate);
       if (endDate && endDate < yearDate) {
         source.balance = 0;
@@ -705,13 +723,18 @@ function buildSchedule(currentSettings) {
       name: source.name,
       color: source.color,
       amount: withdrawals.get(source.id) ?? 0,
-      endingBalance: source.balance
+      endingBalance: isExpenseSource(source) ? 0 : source.balance
     }));
+
+    const nonExpenseTotal = sourceValues.reduce((sum, item) => {
+      const src = activeSources.find(s => s.id === item.id);
+      return isExpenseSource(src) ? sum : sum + item.amount;
+    }, 0);
 
     return {
       year,
       target: targetAmount,
-      total: sourceValues.reduce((sum, item) => sum + item.amount, 0),
+      total: nonExpenseTotal,
       sourceValues
     };
   });
@@ -731,6 +754,7 @@ function buildSchedule(currentSettings) {
 
   return scheduleReal.map((yearReal, index) => {
     const infMult = Math.pow(1 + inflationRate, index);
+    const balMult = Math.pow(1 + inflationRate, index + 1);
     return {
       year: yearReal.year,
       target: roundCurrency(yearReal.target * infMult),
@@ -738,14 +762,14 @@ function buildSchedule(currentSettings) {
       sourceValues: yearReal.sourceValues.map((sv) => ({
         ...sv,
         amount: roundCurrency(sv.amount * infMult),
-        endingBalance: roundCurrency(sv.endingBalance * infMult)
+        endingBalance: roundCurrency(sv.endingBalance * balMult)
       }))
     };
   });
 }
 
 function projectBalanceToDate(source, targetDate) {
-  if (isAnnualIncomeSource(source)) return 0;
+  if (isAnnualIncomeSource(source) || isExpenseSource(source)) return 0;
 
   const initialDate = parseDate(source.initialDate);
   if (!initialDate || initialDate > targetDate) return 0;
@@ -1064,6 +1088,7 @@ function renderTable(schedule, sources) {
   const headRow = document.createElement("tr");
   const sourceHeaders = sources.flatMap((source) => {
     if (isAnnualIncomeSource(source)) return [`${source.name} revenu`];
+    if (isExpenseSource(source)) return [`${source.name} depense`];
     return [`${source.name} retrait`, `${source.name} solde`];
   });
 
@@ -1086,7 +1111,7 @@ function renderTable(schedule, sources) {
       withdrawalCell.textContent = currency(sourceValue?.amount ?? 0);
       row.append(withdrawalCell);
 
-      if (!isAnnualIncomeSource(source)) {
+      if (!isAnnualIncomeSource(source) && !isExpenseSource(source)) {
         const balanceCell = document.createElement("td");
         balanceCell.className = "balance-cell";
         balanceCell.textContent = currency(sourceValue?.endingBalance ?? 0);
@@ -1166,7 +1191,7 @@ function normalizeSettings(value) {
     },
     sources: Array.isArray(value?.sources) ? value.sources.map((source, index) => ({
       id: source.id || crypto.randomUUID(),
-      type: source.type === "annualIncome" ? "annualIncome" : "investment",
+      type: source.type === "annualIncome" ? "annualIncome" : source.type === "expense" ? "expense" : "investment",
       collapsed: Boolean(source.collapsed),
       name: source.name || `Source ${index + 1}`,
       annualIncomeAmount: numberValue(source.annualIncomeAmount),
@@ -1179,6 +1204,8 @@ function normalizeSettings(value) {
       annualReturnRate: numberValue(source.annualReturnRate),
       endDate: source.endDate || endOfTarget(value?.target || defaultSettings.target),
       constantWithdrawal: Boolean(source.constantWithdrawal),
+      expenseAmount: numberValue(source.expenseAmount),
+      expenseDate: source.expenseDate || defaultSettings.target.startDate,
       enabled: source.enabled !== false
     })) : []
   };
@@ -1253,6 +1280,10 @@ function isAnnualIncomeSource(source) {
   return source.type === "annualIncome";
 }
 
+function isExpenseSource(source) {
+  return source.type === "expense";
+}
+
 function annualIncomeForYear(source, yearDate) {
   const start = parseDate(source.withdrawalStartDate);
   const end = parseDate(source.endDate);
@@ -1272,7 +1303,7 @@ function annualIncomeForYear(source, yearDate) {
 function updateSourceLabels(node, type) {
   const startDateLabel = node.querySelector('[data-role="start-date-label"]');
   if (startDateLabel) {
-    startDateLabel.textContent = type === "annualIncome" ? "Date de debut" : "Debut retraits";
+    startDateLabel.textContent = type === "annualIncome" ? "Date de debut" : type === "expense" ? "Date de la depense" : "Debut retraits";
   }
 }
 
