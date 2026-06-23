@@ -637,6 +637,11 @@ button:focus-visible {
   font-size: 12px;
 }
 
+.axis-label-age {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
 .axis-line {
   stroke: var(--line);
   stroke-width: 1;

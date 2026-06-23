@@ -202,6 +202,27 @@
           <input type="file" class="import-file-input sr-only" accept=".json">
         </div>
 
+        <section class="settings-section" data-section="profil">
+          <div class="section-header-row">
+            <button class="section-toggle-button" type="button" aria-expanded="true">
+              <span class="section-toggle-icon">▾</span>
+              <h2>Profil</h2>
+            </button>
+          </div>
+          <div class="section-body">
+            <div class="form-grid two-columns">
+              <label>
+                <span>Date de naissance</span>
+                <input data-scenario-field="birthDate" type="date">
+              </label>
+              <label>
+                <span>Age aujourd'hui</span>
+                <input data-scenario-age="birthDate" type="text" readonly tabindex="-1">
+              </label>
+            </div>
+          </div>
+        </section>
+
         <section class="settings-section" data-section="inflation">
           <div class="section-header-row">
             <button class="section-toggle-button" type="button" aria-expanded="true">

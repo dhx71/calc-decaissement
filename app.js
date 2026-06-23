@@ -3,9 +3,10 @@ const STORAGE_KEY_V1 = "calc-decaissement-settings-v1";
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const defaultSettings = {
+  birthDate: "",
   inflationRate: 2,
   showConstantDollars: true,
-  sectionCollapsed: { inflation: false, cible: false, sources: false },
+  sectionCollapsed: { profil: false, inflation: false, cible: false, sources: false },
   target: {
     startDate: "2035-01-01",
     annualAmount: 60000,
@@ -249,6 +250,8 @@ function bindScenarioFields(body) {
     });
   });
 
+  const birthDate = body.querySelector('[data-scenario-field="birthDate"]');
+  const birthDateAge = body.querySelector('[data-scenario-age="birthDate"]');
   const inflationRate = body.querySelector('[data-scenario-field="inflationRate"]');
   const showConstantDollars = body.querySelector('[data-scenario-field="showConstantDollars"]');
   const targetStartDate = body.querySelector('[data-scenario-field="targetStartDate"]');
@@ -257,6 +260,18 @@ function bindScenarioFields(body) {
 
   inflationRate.value = settings.inflationRate;
   showConstantDollars.checked = settings.showConstantDollars;
+
+  birthDate.value = settings.birthDate;
+  const updateBirthDateAge = () => {
+    const today = ageOnDate(settings.birthDate, toDateInputValue(new Date()));
+    birthDateAge.value = today === null ? "" : `${today} ans`;
+  };
+  updateBirthDateAge();
+  birthDate.addEventListener("input", (event) => {
+    settings.birthDate = event.target.value;
+    updateBirthDateAge();
+    updateProjection();
+  });
 
   inflationRate.addEventListener("input", (event) => {
     settings.inflationRate = numberValue(event.target.value);
@@ -940,6 +955,10 @@ function renderChart(schedule, currentSettings) {
     });
 
     text(svg, x + barWidth / 2, margin.top + chartHeight + 24, String(year.year), "axis-label", "middle");
+    const age = ageAtYear(currentSettings.birthDate, year.year);
+    if (age !== null) {
+      text(svg, x + barWidth / 2, margin.top + chartHeight + 40, String(age), "axis-label axis-label-age", "middle");
+    }
     if (year.total > 0) {
       const totalY = margin.top + chartHeight - (year.total / yMax) * chartHeight;
       text(svg, x + barWidth / 2, Math.max(14, totalY - 8), compactCurrency(year.total), "bar-label", "middle");
@@ -999,6 +1018,10 @@ function renderAvoirNetteChart(schedule, currentSettings) {
     });
 
     text(svg, x + barWidth / 2, margin.top + chartHeight + 24, String(year.year), "axis-label", "middle");
+    const age = ageAtYear(currentSettings.birthDate, year.year);
+    if (age !== null) {
+      text(svg, x + barWidth / 2, margin.top + chartHeight + 40, String(age), "axis-label axis-label-age", "middle");
+    }
     if (totalBalance > 0) {
       const totalY = margin.top + chartHeight - (totalBalance / yMax) * chartHeight;
       text(svg, x + barWidth / 2, Math.max(14, totalY - 8), compactCurrency(totalBalance), "bar-label", "middle");
@@ -1085,14 +1108,19 @@ function renderTable(schedule, sources) {
   fields.scheduleHead.replaceChildren();
   fields.scheduleBody.replaceChildren();
 
-  const headRow = document.createElement("tr");
+  const hasBirthDate = Boolean(settings.birthDate);
   const sourceHeaders = sources.flatMap((source) => {
     if (isAnnualIncomeSource(source)) return [`${source.name} revenu`];
     if (isExpenseSource(source)) return [`${source.name} depense`];
     return [`${source.name} retrait`, `${source.name} solde`];
   });
 
-  ["Annee", ...sourceHeaders, "Total", "Cible"].forEach((title) => {
+  const headerTitles = hasBirthDate
+    ? ["Annee", "Age", ...sourceHeaders, "Total", "Cible"]
+    : ["Annee", ...sourceHeaders, "Total", "Cible"];
+
+  const headRow = document.createElement("tr");
+  headerTitles.forEach((title) => {
     const th = document.createElement("th");
     th.textContent = title;
     headRow.append(th);
@@ -1104,6 +1132,13 @@ function renderTable(schedule, sources) {
     const yearCell = document.createElement("td");
     yearCell.textContent = year.year;
     row.append(yearCell);
+
+    if (hasBirthDate) {
+      const ageCell = document.createElement("td");
+      const age = ageAtYear(settings.birthDate, year.year);
+      ageCell.textContent = age === null ? "" : String(age);
+      row.append(ageCell);
+    }
 
     sources.forEach((source) => {
       const sourceValue = year.sourceValues.find((item) => item.id === source.id);
@@ -1176,6 +1211,7 @@ function normalizeState(value) {
 
 function normalizeSettings(value) {
   return {
+    birthDate: value?.birthDate || defaultSettings.birthDate,
     inflationRate: numberValue(value?.inflationRate ?? defaultSettings.inflationRate),
     showConstantDollars: value?.showConstantDollars !== undefined ? Boolean(value.showConstantDollars) : defaultSettings.showConstantDollars,
     target: {
@@ -1185,6 +1221,7 @@ function normalizeSettings(value) {
       changes: normalizeTargetChanges(value?.target?.changes)
     },
     sectionCollapsed: {
+      profil: Boolean(value?.sectionCollapsed?.profil),
       inflation: Boolean(value?.sectionCollapsed?.inflation),
       cible: Boolean(value?.sectionCollapsed?.cible),
       sources: Boolean(value?.sectionCollapsed?.sources)
@@ -1377,6 +1414,24 @@ function toDateInputValue(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function ageOnDate(birthDateValue, dateValue) {
+  if (!birthDateValue || !dateValue) return null;
+  const birth = new Date(birthDateValue);
+  const ref = new Date(dateValue);
+  if (Number.isNaN(birth.getTime()) || Number.isNaN(ref.getTime())) return null;
+  let age = ref.getFullYear() - birth.getFullYear();
+  const monthDiff = ref.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && ref.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
+function ageAtYear(birthDateValue, year) {
+  if (!birthDateValue || !Number.isInteger(year)) return null;
+  return ageOnDate(birthDateValue, `${year}-01-01`);
 }
 
 function rect(svg, x, y, width, height, fill) {
