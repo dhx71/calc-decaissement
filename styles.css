@@ -38,7 +38,8 @@ button {
 .app-shell {
   display: grid;
   grid-template-columns: minmax(380px, 450px) minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .config-panel {
@@ -46,6 +47,7 @@ button {
   border-right: 1px solid var(--line);
   padding: 24px;
   overflow-y: auto;
+  height: 100vh;
 }
 
 .panel-header,
@@ -509,7 +511,8 @@ button:focus-visible {
 .workspace {
   min-width: 0;
   padding: 28px;
-  overflow: auto;
+  overflow-y: auto;
+  height: 100vh;
 }
 
 .workspace-header {
@@ -725,6 +728,14 @@ th {
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .config-panel,
+  .workspace {
+    height: auto;
+    overflow: visible;
   }
 
   .config-panel {
